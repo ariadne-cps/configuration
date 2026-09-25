@@ -80,6 +80,7 @@ function(setup_project_coverage)
 endfunction()
 
 macro(setup_standalone_project_tests)
+    if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     set(options EXCLUDE_FROM_ALL)
     set(oneValueArgs TARGET TEST_DIRECTORY TEST_TARGET EXCLUDE_REGEX)
     set(multiValueArgs SOURCES TEST_BUILD_DEPENDENCIES COVERAGE_TARGETS)
@@ -120,4 +121,5 @@ macro(setup_standalone_project_tests)
         COVERAGE_TARGETS ${TEST_SETUP_COVERAGE_TARGETS}
         EXCLUDE_REGEX "${TEST_SETUP_EXCLUDE_REGEX}"
     )
+    endif()
 endmacro()
