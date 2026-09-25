@@ -3,7 +3,7 @@ include(CMakeParseArguments)
 find_program(LCOV_EXECUTABLE NAMES lcov REQUIRED)
 find_program(GENHTML_EXECUTABLE NAMES genhtml REQUIRED)
 
-set(GCC_COVERAGE_COMPILE_FLAGS "--coverage")
+set(GCC_COVERAGE_COMPILE_FLAGS "--coverage -fprofile-update=atomic")
 set(GCC_COVERAGE_LINK_FLAGS "--coverage")
 
 function(append_gcc_coverage_compiler_flags)
@@ -29,6 +29,9 @@ function(setup_target_for_coverage_gcc)
     set(COVERAGE_HTML_DIR "${PROJECT_BINARY_DIR}/${Coverage_NAME}")
 
     add_custom_target(${Coverage_NAME}
+        COMMAND "${LCOV_EXECUTABLE}"
+                --directory "${PROJECT_BINARY_DIR}"
+                --zerocounters
         COMMAND "${CMAKE_CTEST_COMMAND}" --output-on-failure
         COMMAND "${LCOV_EXECUTABLE}"
                 --directory "${PROJECT_BINARY_DIR}"
