@@ -79,16 +79,12 @@ function(setup_project_coverage)
     endif()
 endfunction()
 
-function(setup_standalone_project_tests)
+macro(setup_standalone_project_tests)
     set(options EXCLUDE_FROM_ALL)
     set(oneValueArgs TARGET TEST_DIRECTORY TEST_TARGET EXCLUDE_REGEX)
     set(multiValueArgs SOURCES TEST_BUILD_DEPENDENCIES COVERAGE_TARGETS)
     cmake_parse_arguments(TEST_SETUP
         "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-
-    if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-        return()
-    endif()
 
     if(NOT TEST_SETUP_TARGET)
         message(FATAL_ERROR "setup_standalone_project_tests requires TARGET.")
@@ -124,4 +120,4 @@ function(setup_standalone_project_tests)
         COVERAGE_TARGETS ${TEST_SETUP_COVERAGE_TARGETS}
         EXCLUDE_REGEX "${TEST_SETUP_EXCLUDE_REGEX}"
     )
-endfunction()
+endmacro()
