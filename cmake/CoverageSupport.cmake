@@ -24,7 +24,7 @@ function(setup_project_coverage)
 
     set(options)
     set(oneValueArgs TARGET TEST_TARGET EXCLUDE_REGEX)
-    set(multiValueArgs SOURCES)
+    set(multiValueArgs SOURCES COVERAGE_TARGETS)
     cmake_parse_arguments(COVERAGE_SETUP
         "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
@@ -42,19 +42,22 @@ function(setup_project_coverage)
     endif()
 
     if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
-        get_property(_test_dependencies
-            TARGET ${COVERAGE_SETUP_TEST_TARGET}
-            PROPERTY MANUALLY_ADDED_DEPENDENCIES)
+        set(_coverage_objects ${COVERAGE_SETUP_COVERAGE_TARGETS})
 
-        set(_coverage_objects)
-        foreach(_test_target IN LISTS _test_dependencies)
-            if(TARGET ${_test_target})
-                get_target_property(_test_target_type ${_test_target} TYPE)
-                if(_test_target_type STREQUAL "EXECUTABLE")
-                    list(APPEND _coverage_objects ${_test_target})
+        if(NOT _coverage_objects)
+            get_property(_test_dependencies
+                TARGET ${COVERAGE_SETUP_TEST_TARGET}
+                PROPERTY MANUALLY_ADDED_DEPENDENCIES)
+
+            foreach(_test_target IN LISTS _test_dependencies)
+                if(TARGET ${_test_target})
+                    get_target_property(_test_target_type ${_test_target} TYPE)
+                    if(_test_target_type STREQUAL "EXECUTABLE")
+                        list(APPEND _coverage_objects ${_test_target})
+                    endif()
                 endif()
-            endif()
-        endforeach()
+            endforeach()
+        endif()
 
         set(_llvm_args
             NAME coverage
@@ -74,4 +77,51 @@ function(setup_project_coverage)
             DEPENDENCIES ${COVERAGE_SETUP_TEST_TARGET}
         )
     endif()
+endfunction()
+
+function(setup_standalone_project_tests)
+    set(options EXCLUDE_FROM_ALL)
+    set(oneValueArgs TARGET TEST_DIRECTORY TEST_TARGET EXCLUDE_REGEX)
+    set(multiValueArgs SOURCES TEST_BUILD_DEPENDENCIES COVERAGE_TARGETS)
+    cmake_parse_arguments(TEST_SETUP
+        "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        return()
+    endif()
+
+    if(NOT TEST_SETUP_TARGET)
+        message(FATAL_ERROR "setup_standalone_project_tests requires TARGET.")
+    endif()
+    if(NOT TEST_SETUP_TEST_DIRECTORY)
+        message(FATAL_ERROR "setup_standalone_project_tests requires TEST_DIRECTORY.")
+    endif()
+    if(NOT TEST_SETUP_TEST_TARGET)
+        message(FATAL_ERROR "setup_standalone_project_tests requires TEST_TARGET.")
+    endif()
+
+    enable_testing()
+
+    if(TEST_SETUP_EXCLUDE_FROM_ALL)
+        add_subdirectory("${TEST_SETUP_TEST_DIRECTORY}" EXCLUDE_FROM_ALL)
+    else()
+        add_subdirectory("${TEST_SETUP_TEST_DIRECTORY}")
+    endif()
+
+    if(NOT TARGET ${TEST_SETUP_TEST_TARGET})
+        message(FATAL_ERROR
+            "Test directory '${TEST_SETUP_TEST_DIRECTORY}' did not create target '${TEST_SETUP_TEST_TARGET}'.")
+    endif()
+
+    if(TEST_SETUP_TEST_BUILD_DEPENDENCIES)
+        add_dependencies(${TEST_SETUP_TEST_TARGET} ${TEST_SETUP_TEST_BUILD_DEPENDENCIES})
+    endif()
+
+    setup_project_coverage(
+        TARGET ${TEST_SETUP_TARGET}
+        TEST_TARGET ${TEST_SETUP_TEST_TARGET}
+        SOURCES ${TEST_SETUP_SOURCES}
+        COVERAGE_TARGETS ${TEST_SETUP_COVERAGE_TARGETS}
+        EXCLUDE_REGEX "${TEST_SETUP_EXCLUDE_REGEX}"
+    )
 endfunction()
