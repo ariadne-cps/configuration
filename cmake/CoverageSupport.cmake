@@ -1,5 +1,7 @@
 include_guard(GLOBAL)
 
+include(CMakeParseArguments)
+
 macro(enable_project_coverage)
     if(COVERAGE)
         if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
@@ -14,3 +16,62 @@ macro(enable_project_coverage)
         endif()
     endif()
 endmacro()
+
+function(setup_project_coverage)
+    if(NOT COVERAGE)
+        return()
+    endif()
+
+    set(options)
+    set(oneValueArgs TARGET TEST_TARGET EXCLUDE_REGEX)
+    set(multiValueArgs SOURCES)
+    cmake_parse_arguments(COVERAGE_SETUP
+        "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    if(NOT COVERAGE_SETUP_TARGET)
+        message(FATAL_ERROR "setup_project_coverage requires TARGET.")
+    endif()
+    if(NOT COVERAGE_SETUP_TEST_TARGET)
+        message(FATAL_ERROR "setup_project_coverage requires TEST_TARGET.")
+    endif()
+    if(NOT TARGET ${COVERAGE_SETUP_TARGET})
+        message(FATAL_ERROR "Coverage target '${COVERAGE_SETUP_TARGET}' does not exist.")
+    endif()
+    if(NOT TARGET ${COVERAGE_SETUP_TEST_TARGET})
+        message(FATAL_ERROR "Test aggregate target '${COVERAGE_SETUP_TEST_TARGET}' does not exist.")
+    endif()
+
+    if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
+        get_property(_test_dependencies
+            TARGET ${COVERAGE_SETUP_TEST_TARGET}
+            PROPERTY MANUALLY_ADDED_DEPENDENCIES)
+
+        set(_coverage_objects)
+        foreach(_test_target IN LISTS _test_dependencies)
+            if(TARGET ${_test_target})
+                get_target_property(_test_target_type ${_test_target} TYPE)
+                if(_test_target_type STREQUAL "EXECUTABLE")
+                    list(APPEND _coverage_objects ${_test_target})
+                endif()
+            endif()
+        endforeach()
+
+        set(_llvm_args
+            NAME coverage
+            TARGET ${COVERAGE_SETUP_TARGET}
+            OBJECTS ${_coverage_objects}
+            DEPENDENCIES ${COVERAGE_SETUP_TEST_TARGET}
+            SOURCES ${COVERAGE_SETUP_SOURCES}
+        )
+        if(COVERAGE_SETUP_EXCLUDE_REGEX)
+            list(APPEND _llvm_args EXCLUDE_REGEX "${COVERAGE_SETUP_EXCLUDE_REGEX}")
+        endif()
+
+        setup_target_for_coverage_llvm(${_llvm_args})
+    else()
+        setup_target_for_coverage_gcc(
+            NAME coverage
+            DEPENDENCIES ${COVERAGE_SETUP_TEST_TARGET}
+        )
+    endif()
+endfunction()
