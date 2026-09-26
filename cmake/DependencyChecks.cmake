@@ -2,6 +2,31 @@ include_guard(GLOBAL)
 
 find_package(Git REQUIRED)
 
+function(require_initialized_submodules)
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" -C "${PROJECT_SOURCE_DIR}" submodule status --recursive
+        OUTPUT_VARIABLE _submodule_status
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_VARIABLE _submodule_error
+        RESULT_VARIABLE _submodule_result
+    )
+
+    if(NOT _submodule_result EQUAL 0)
+        message(FATAL_ERROR
+            "Unable to inspect Git submodules: ${_submodule_error}. "
+            "Run 'git submodule update --init --recursive' before configuring the project.")
+    endif()
+
+    string(REPLACE "\n" ";" _submodule_lines "${_submodule_status}")
+    foreach(_submodule_line IN LISTS _submodule_lines)
+        if(_submodule_line MATCHES "^-")
+            message(FATAL_ERROR
+                "One or more Git submodules are not initialized. "
+                "Run 'git submodule update --init --recursive' before configuring the project.")
+        endif()
+    endforeach()
+endfunction()
+
 function(get_gitlink_commit REPOSITORY SUBMODULE_PATH OUTPUT_VARIABLE)
     execute_process(
         COMMAND "${GIT_EXECUTABLE}" -C "${REPOSITORY}" rev-parse "HEAD:${SUBMODULE_PATH}"
