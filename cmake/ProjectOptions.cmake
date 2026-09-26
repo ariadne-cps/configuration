@@ -30,12 +30,14 @@ function(enable_project_options)
             strict-aliasing
             unused-parameter
             shadow
-            error
         )
         foreach(_warning IN LISTS _warnings)
             add_compile_options(-W${_warning})
         endforeach()
-    else()
+        if(WARNINGS_AS_ERRORS)
+            add_compile_options(-Werror)
+        endif()
+    elseif(WARNINGS_AS_ERRORS)
         add_compile_options(/WX)
     endif()
 endfunction()
