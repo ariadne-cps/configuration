@@ -1,0 +1,27 @@
+set(_manifest "@PROJECT_BINARY_DIR@/install_manifest.txt")
+
+if(NOT EXISTS "${_manifest}")
+    message(FATAL_ERROR
+        "Install manifest not found: ${_manifest}. "
+        "Run the install target before uninstall.")
+endif()
+
+file(STRINGS "${_manifest}" _installed_files)
+
+foreach(_installed_file IN LISTS _installed_files)
+    if(_installed_file STREQUAL "")
+        continue()
+    endif()
+
+    set(_path "$ENV{DESTDIR}${_installed_file}")
+
+    if(EXISTS "${_path}" OR IS_SYMLINK "${_path}")
+        message(STATUS "Removing ${_path}")
+        file(REMOVE "${_path}")
+        if(EXISTS "${_path}" OR IS_SYMLINK "${_path}")
+            message(FATAL_ERROR "Failed to remove ${_path}")
+        endif()
+    else()
+        message(STATUS "Already absent: ${_path}")
+    endif()
+endforeach()
