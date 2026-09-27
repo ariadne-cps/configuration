@@ -128,6 +128,11 @@ endmacro()
 
 macro(setup_project_tests)
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        set(options)
+        set(oneValueArgs EXCLUDE_REGEX)
+        cmake_parse_arguments(PROJECT_TESTS
+            "${options}" "${oneValueArgs}" "" ${ARGN})
+
         get_property(_project_library_target GLOBAL PROPERTY ARIADNE_PROJECT_LIBRARY_TARGET)
         if(NOT _project_library_target)
             message(FATAL_ERROR
@@ -147,7 +152,7 @@ macro(setup_project_tests)
             SOURCES
                 "${PROJECT_SOURCE_DIR}/include"
                 "${PROJECT_SOURCE_DIR}/src"
-            EXCLUDE_REGEX "*/submodules/*"
+            EXCLUDE_REGEX "${PROJECT_TESTS_EXCLUDE_REGEX}"
         )
     endif()
 endmacro()
