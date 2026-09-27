@@ -17,7 +17,7 @@ endfunction()
 
 function(setup_target_for_coverage_gcc)
     set(options NONE)
-    set(oneValueArgs NAME)
+    set(oneValueArgs NAME EXCLUDE_REGEX)
     set(multiValueArgs DEPENDENCIES)
     cmake_parse_arguments(Coverage "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
@@ -49,6 +49,15 @@ function(setup_target_for_coverage_gcc)
         VERBATIM
         COMMENT "Running tests and generating GCC/lcov code coverage report."
     )
+
+    if(Coverage_EXCLUDE_REGEX)
+        add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
+            COMMAND "${LCOV_EXECUTABLE}"
+                    --remove "${COVERAGE_INFO}" "${Coverage_EXCLUDE_REGEX}"
+                    --output-file "${COVERAGE_INFO}"
+            VERBATIM
+        )
+    endif()
 
     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E echo

@@ -75,6 +75,7 @@ function(setup_project_coverage)
         setup_target_for_coverage_gcc(
             NAME coverage
             DEPENDENCIES ${COVERAGE_SETUP_TEST_TARGET}
+            EXCLUDE_REGEX "${COVERAGE_SETUP_EXCLUDE_REGEX}"
         )
     endif()
 endfunction()
