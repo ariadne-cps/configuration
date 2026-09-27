@@ -124,3 +124,30 @@ macro(setup_standalone_project_tests)
     )
     endif()
 endmacro()
+
+
+macro(setup_project_tests)
+    if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        get_property(_project_library_target GLOBAL PROPERTY ARIADNE_PROJECT_LIBRARY_TARGET)
+        if(NOT _project_library_target)
+            message(FATAL_ERROR
+                "setup_project_tests requires setup_project_library to be called first.")
+        endif()
+
+        enable_testing()
+        add_subdirectory(test)
+
+        if(NOT TARGET tests)
+            message(FATAL_ERROR "Test directory 'test' did not create target 'tests'.")
+        endif()
+
+        setup_project_coverage(
+            TARGET ${_project_library_target}
+            TEST_TARGET tests
+            SOURCES
+                "${PROJECT_SOURCE_DIR}/include"
+                "${PROJECT_SOURCE_DIR}/src"
+            EXCLUDE_REGEX "*/submodules/*"
+        )
+    endif()
+endmacro()
