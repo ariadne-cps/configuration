@@ -43,9 +43,6 @@ function(setup_target_for_coverage_gcc)
                 --capture
                 ${_capture_filter_args}
                 --output-file "${COVERAGE_INFO}"
-        COMMAND "${LCOV_EXECUTABLE}"
-                --remove "${COVERAGE_INFO}" "/usr/*"
-                --output-file "${COVERAGE_INFO}"
         COMMAND "${LCOV_EXECUTABLE}" --list "${COVERAGE_INFO}"
         COMMAND "${GENHTML_EXECUTABLE}"
                 --output-directory "${COVERAGE_HTML_DIR}"
