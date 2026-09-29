@@ -18,7 +18,7 @@ endfunction()
 function(setup_target_for_coverage_gcc)
     set(options NONE)
     set(oneValueArgs NAME EXCLUDE_REGEX)
-    set(multiValueArgs DEPENDENCIES)
+    set(multiValueArgs DEPENDENCIES SOURCES)
     cmake_parse_arguments(Coverage "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     if(NOT Coverage_NAME)
@@ -28,6 +28,11 @@ function(setup_target_for_coverage_gcc)
     set(COVERAGE_INFO "${PROJECT_BINARY_DIR}/${Coverage_NAME}.info")
     set(COVERAGE_HTML_DIR "${PROJECT_BINARY_DIR}/${Coverage_NAME}")
 
+    set(_capture_filter_args)
+    foreach(_source IN LISTS Coverage_SOURCES)
+        list(APPEND _capture_filter_args --include "${_source}/*")
+    endforeach()
+
     add_custom_target(${Coverage_NAME}
         COMMAND "${LCOV_EXECUTABLE}"
                 --directory "${PROJECT_BINARY_DIR}"
@@ -36,6 +41,7 @@ function(setup_target_for_coverage_gcc)
         COMMAND "${LCOV_EXECUTABLE}"
                 --directory "${PROJECT_BINARY_DIR}"
                 --capture
+                ${_capture_filter_args}
                 --output-file "${COVERAGE_INFO}"
         COMMAND "${LCOV_EXECUTABLE}"
                 --remove "${COVERAGE_INFO}" "/usr/*"
