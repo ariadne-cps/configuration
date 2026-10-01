@@ -82,6 +82,10 @@ macro(setup_project)
 
     enable_project_options()
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        add_custom_target(benchmarks)
+        add_custom_target(everything)
+        add_dependencies(everything benchmarks)
+
         enable_project_coverage()
         setup_project_uninstall()
     endif()

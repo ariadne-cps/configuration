@@ -17,6 +17,12 @@ macro(enable_project_coverage)
     endif()
 endmacro()
 
+macro(setup_project_benchmarks)
+    if(EXISTS "${PROJECT_SOURCE_DIR}/benchmarks/CMakeLists.txt")
+        add_subdirectory("${PROJECT_SOURCE_DIR}/benchmarks" EXCLUDE_FROM_ALL)
+    endif()
+endmacro()
+
 function(setup_project_coverage)
     if(NOT COVERAGE)
         return()
@@ -116,6 +122,12 @@ macro(setup_standalone_project_tests)
         add_dependencies(${TEST_SETUP_TEST_TARGET} ${TEST_SETUP_TEST_BUILD_DEPENDENCIES})
     endif()
 
+    add_dependencies(everything
+        ${TEST_SETUP_TARGET}
+        ${TEST_SETUP_TEST_TARGET}
+    )
+    setup_project_benchmarks()
+
     setup_project_coverage(
         TARGET ${TEST_SETUP_TARGET}
         TEST_TARGET ${TEST_SETUP_TEST_TARGET}
@@ -146,6 +158,12 @@ macro(setup_project_tests)
         if(NOT TARGET tests)
             message(FATAL_ERROR "Test directory 'test' did not create target 'tests'.")
         endif()
+
+        add_dependencies(everything
+            ${_project_library_target}
+            tests
+        )
+        setup_project_benchmarks()
 
         setup_project_coverage(
             TARGET ${_project_library_target}
