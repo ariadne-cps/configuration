@@ -7,6 +7,7 @@ include(CoverageSupport)
 include(DependencyChecks)
 include(UninstallSupport)
 include(ProjectLibrarySupport)
+include(InstallBundleSupport)
 
 function(enable_project_options)
     set(CMAKE_MACOSX_RPATH 1 PARENT_SCOPE)
