@@ -136,6 +136,7 @@ endif()
                 ${LLVM_COV_OBJECT_ARGS}
                 "-instr-profile=${PROFDATA_FILE}"
                 "-format=html"
+                "-show-branches=count"
                 "-output-dir=${HTML_DIR}"
                 ${LLVM_COV_FILTER_ARGS}
                 ${Coverage_SOURCES}
