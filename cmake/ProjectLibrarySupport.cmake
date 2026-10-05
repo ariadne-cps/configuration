@@ -15,7 +15,7 @@ function(setup_project_library)
         return()
     endif()
 
-    add_library(${PROJECT_LIBRARY_TARGET} SHARED)
+    add_library(${PROJECT_LIBRARY_TARGET} ${LIBRARY_KIND})
 
     foreach(_object_target IN LISTS PROJECT_LIBRARY_OBJECTS)
         if(NOT TARGET ${_object_target})
