@@ -85,6 +85,27 @@ if(NOT LLVM_PROFILE_MERGE_RESULT EQUAL 0)
 endif()
 ")
 
+    set(LLVM_COV_SOURCE_ARGS "")
+    foreach(Coverage_SOURCE IN LISTS Coverage_SOURCES)
+        if(IS_DIRECTORY "${Coverage_SOURCE}")
+            file(GLOB_RECURSE _coverage_source_files
+                CONFIGURE_DEPENDS
+                LIST_DIRECTORIES false
+                "${Coverage_SOURCE}/*.c"
+                "${Coverage_SOURCE}/*.cc"
+                "${Coverage_SOURCE}/*.cpp"
+                "${Coverage_SOURCE}/*.cxx"
+                "${Coverage_SOURCE}/*.h"
+                "${Coverage_SOURCE}/*.hh"
+                "${Coverage_SOURCE}/*.hpp"
+                "${Coverage_SOURCE}/*.hxx"
+            )
+            list(APPEND LLVM_COV_SOURCE_ARGS ${_coverage_source_files})
+        else()
+            list(APPEND LLVM_COV_SOURCE_ARGS "${Coverage_SOURCE}")
+        endif()
+    endforeach()
+
     set(LLVM_COV_FILTER_ARGS "")
     if(Coverage_EXCLUDE_REGEX)
         list(APPEND LLVM_COV_FILTER_ARGS "-ignore-filename-regex=${Coverage_EXCLUDE_REGEX}")
@@ -98,7 +119,7 @@ endif()
             \"-instr-profile=${PROFDATA_FILE}\"
             \"-format=lcov\"
             ${LLVM_COV_FILTER_ARGS}
-            ${Coverage_SOURCES}
+            ${LLVM_COV_SOURCE_ARGS}
     OUTPUT_FILE \"${LCOV_FILE}\"
     RESULT_VARIABLE LLVM_COV_EXPORT_RESULT
 )
@@ -119,7 +140,7 @@ endif()
                 ${LLVM_COV_OBJECT_ARGS}
                 "-instr-profile=${PROFDATA_FILE}"
                 ${LLVM_COV_FILTER_ARGS}
-                ${Coverage_SOURCES}
+                ${LLVM_COV_SOURCE_ARGS}
         COMMAND "${CMAKE_COMMAND}" -P "${EXPORT_SCRIPT}"
         COMMAND "${LLVM_COV_EXECUTABLE}" show
                 "$<TARGET_FILE:${Coverage_TARGET}>"
@@ -128,7 +149,7 @@ endif()
                 "-show-branches=count"
                 "-show-line-counts-or-regions"
                 ${LLVM_COV_FILTER_ARGS}
-                ${Coverage_SOURCES}
+                ${LLVM_COV_SOURCE_ARGS}
                 > "${BRANCH_REPORT_FILE}"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${HTML_DIR}"
         COMMAND "${LLVM_COV_EXECUTABLE}" show
@@ -139,7 +160,7 @@ endif()
                 "-show-branches=count"
                 "-output-dir=${HTML_DIR}"
                 ${LLVM_COV_FILTER_ARGS}
-                ${Coverage_SOURCES}
+                ${LLVM_COV_SOURCE_ARGS}
         WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
         DEPENDS ${Coverage_DEPENDENCIES} ${Coverage_TARGET} ${Coverage_OBJECTS}
         VERBATIM
