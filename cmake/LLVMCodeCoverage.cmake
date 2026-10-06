@@ -149,7 +149,7 @@ foreach(_index RANGE 0 ${_last_test})
     execute_process(
         COMMAND "${CMAKE_COMMAND}" -E env
                 "LLVM_PROFILE_FILE=${_profile_pattern}"
-                "${CMAKE_CTEST_COMMAND}" --output-on-failure -R "^${_test_name}$"
+                "${CMAKE_CTEST_COMMAND}" --output-on-failure --quiet -R "^${_test_name}$"
         WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
         RESULT_VARIABLE _test_result
     )
@@ -260,6 +260,9 @@ execute_process(
             ${_lcov_merge_args}
             --output-file "${LCOV_FILE}"
             --branch-coverage
+            --forget-test-names
+            --rc derive_function_end_line=0
+            --rc check_data_consistency=0
             --quiet
     RESULT_VARIABLE _lcov_merge_result
     ERROR_VARIABLE _lcov_merge_error
@@ -272,6 +275,9 @@ execute_process(
     COMMAND "${LCOV_EXECUTABLE}"
             --list "${LCOV_FILE}"
             --branch-coverage
+            --forget-test-names
+            --rc derive_function_end_line=0
+            --rc check_data_consistency=0
     RESULT_VARIABLE _lcov_list_result
     OUTPUT_VARIABLE _lcov_list_output
     ERROR_VARIABLE _lcov_list_error
