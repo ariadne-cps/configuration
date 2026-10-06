@@ -149,12 +149,16 @@ foreach(_index RANGE 0 ${_last_test})
     execute_process(
         COMMAND "${CMAKE_COMMAND}" -E env
                 "LLVM_PROFILE_FILE=${_profile_pattern}"
-                "${CMAKE_CTEST_COMMAND}" --output-on-failure --quiet -R "^${_test_name}$"
+                "${CMAKE_CTEST_COMMAND}" --output-on-failure -R "^${_test_name}$"
         WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
         RESULT_VARIABLE _test_result
+        OUTPUT_VARIABLE _test_output
+        ERROR_VARIABLE _test_error
     )
     if(NOT _test_result EQUAL 0)
-        message(FATAL_ERROR "CTest failed for '${_test_name}'.")
+        message(FATAL_ERROR
+            "CTest failed for '${_test_name}'.\n"
+            "${_test_output}\n${_test_error}")
     endif()
 
     file(GLOB _raw_profiles "${PROFILE_DIR}/${_test_slug}-*.profraw")
