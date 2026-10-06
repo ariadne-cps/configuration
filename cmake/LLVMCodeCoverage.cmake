@@ -174,7 +174,13 @@ foreach(_index RANGE 0 ${_last_test})
                 ${FILTER_ARGS}
                 ${SOURCE_ARGS}
         RESULT_VARIABLE _report_result
+        ERROR_VARIABLE _report_error
     )
+    if(_report_error MATCHES "mismatched data")
+        message(FATAL_ERROR "llvm-cov reported mismatched data for '${_test_name}':\n${_report_error}")
+    elseif(_report_error)
+        message(WARNING "${_report_error}")
+    endif()
     if(NOT _report_result EQUAL 0)
         message(FATAL_ERROR "llvm-cov report failed for '${_test_name}'.")
     endif()
