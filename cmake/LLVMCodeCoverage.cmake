@@ -27,6 +27,11 @@ if(NOT LLVM_COV_RESULT EQUAL 0 OR NOT LLVM_COV_EXECUTABLE)
     message(FATAL_ERROR "llvm-cov not found via xcrun.")
 endif()
 
+find_program(LCOV_EXECUTABLE lcov)
+if(NOT LCOV_EXECUTABLE)
+    message(FATAL_ERROR "lcov not found; LLVM coverage aggregation requires lcov.")
+endif()
+
 set(LLVM_COVERAGE_COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping")
 set(LLVM_COVERAGE_LINK_FLAGS "-fprofile-instr-generate")
 
@@ -109,13 +114,14 @@ set(SOURCE_ARGS "@LLVM_COV_SOURCE_ARGS@")
 set(FILTER_ARGS "@LLVM_COV_FILTER_ARGS@")
 set(LLVM_PROFDATA_EXECUTABLE "@LLVM_PROFDATA_EXECUTABLE@")
 set(LLVM_COV_EXECUTABLE "@LLVM_COV_EXECUTABLE@")
+set(LCOV_EXECUTABLE "@LCOV_EXECUTABLE@")
 set(CMAKE_CTEST_COMMAND "@CMAKE_CTEST_COMMAND@")
 set(PROJECT_BINARY_DIR "@PROJECT_BINARY_DIR@")
 
 file(REMOVE_RECURSE "${PROFILE_DIR}" "${REPORT_DIR}" "${HTML_DIR}")
 file(MAKE_DIRECTORY "${PROFILE_DIR}" "${REPORT_DIR}" "${HTML_DIR}")
 file(WRITE "${BRANCH_REPORT_FILE}" "")
-file(WRITE "${LCOV_FILE}" "")
+file(REMOVE "${LCOV_FILE}")
 file(WRITE "${HTML_DIR}/index.html"
     "<!doctype html><html><body><h1>LLVM coverage by test</h1><ul>")
 
@@ -174,6 +180,7 @@ foreach(_index RANGE 0 ${_last_test})
                 ${FILTER_ARGS}
                 ${SOURCE_ARGS}
         RESULT_VARIABLE _report_result
+        OUTPUT_VARIABLE _report_output
         ERROR_VARIABLE _report_error
     )
     if(_report_error MATCHES "mismatched data")
@@ -200,8 +207,7 @@ foreach(_index RANGE 0 ${_last_test})
         message(FATAL_ERROR "llvm-cov export failed for '${_test_name}'.")
     endif()
 
-    file(READ "${_lcov_file}" _lcov_content)
-    file(APPEND "${LCOV_FILE}" "${_lcov_content}")
+    list(APPEND _lcov_reports "${_lcov_file}")
 
     execute_process(
         COMMAND "${LLVM_COV_EXECUTABLE}" show
@@ -243,6 +249,40 @@ foreach(_index RANGE 0 ${_last_test})
 endforeach()
 
 file(APPEND "${HTML_DIR}/index.html" "</ul></body></html>")
+
+set(_lcov_merge_args "")
+foreach(_lcov_report IN LISTS _lcov_reports)
+    list(APPEND _lcov_merge_args --add-tracefile "${_lcov_report}")
+endforeach()
+
+execute_process(
+    COMMAND "${LCOV_EXECUTABLE}"
+            ${_lcov_merge_args}
+            --output-file "${LCOV_FILE}"
+            --branch-coverage
+            --quiet
+    RESULT_VARIABLE _lcov_merge_result
+    ERROR_VARIABLE _lcov_merge_error
+)
+if(NOT _lcov_merge_result EQUAL 0)
+    message(FATAL_ERROR "lcov failed to merge per-test coverage reports:\n${_lcov_merge_error}")
+endif()
+
+execute_process(
+    COMMAND "${LCOV_EXECUTABLE}"
+            --list "${LCOV_FILE}"
+            --branch-coverage
+    RESULT_VARIABLE _lcov_list_result
+    OUTPUT_VARIABLE _lcov_list_output
+    ERROR_VARIABLE _lcov_list_error
+)
+if(NOT _lcov_list_result EQUAL 0)
+    message(FATAL_ERROR "lcov failed to list aggregate coverage:\n${_lcov_list_error}")
+endif()
+
+message("")
+message("Aggregate coverage")
+message("${_lcov_list_output}")
 ]=])
 
     string(CONFIGURE "${_llvm_coverage_driver_template}" _llvm_coverage_driver @ONLY)
