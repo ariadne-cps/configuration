@@ -139,6 +139,7 @@ endif()
                 "$<TARGET_FILE:${Coverage_TARGET}>"
                 ${LLVM_COV_OBJECT_ARGS}
                 "-instr-profile=${PROFDATA_FILE}"
+                "-dump"
                 ${LLVM_COV_FILTER_ARGS}
                 ${LLVM_COV_SOURCE_ARGS}
         COMMAND "${CMAKE_COMMAND}" -P "${EXPORT_SCRIPT}"
