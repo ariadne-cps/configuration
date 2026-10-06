@@ -27,10 +27,8 @@ if(NOT LLVM_COV_RESULT EQUAL 0 OR NOT LLVM_COV_EXECUTABLE)
     message(FATAL_ERROR "llvm-cov not found via xcrun.")
 endif()
 
-find_program(LCOV_EXECUTABLE lcov)
-if(NOT LCOV_EXECUTABLE)
-    message(FATAL_ERROR "lcov not found; LLVM coverage aggregation requires lcov.")
-endif()
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(LLVM_COVERAGE_AGGREGATOR "${CMAKE_CURRENT_LIST_DIR}/MergeLLVMCoverage.py")
 
 set(LLVM_COVERAGE_COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping")
 set(LLVM_COVERAGE_LINK_FLAGS "-fprofile-instr-generate")
@@ -114,9 +112,11 @@ set(SOURCE_ARGS "@LLVM_COV_SOURCE_ARGS@")
 set(FILTER_ARGS "@LLVM_COV_FILTER_ARGS@")
 set(LLVM_PROFDATA_EXECUTABLE "@LLVM_PROFDATA_EXECUTABLE@")
 set(LLVM_COV_EXECUTABLE "@LLVM_COV_EXECUTABLE@")
-set(LCOV_EXECUTABLE "@LCOV_EXECUTABLE@")
+set(PYTHON_EXECUTABLE "@Python3_EXECUTABLE@")
+set(AGGREGATOR_SCRIPT "@LLVM_COVERAGE_AGGREGATOR@")
 set(CMAKE_CTEST_COMMAND "@CMAKE_CTEST_COMMAND@")
 set(PROJECT_BINARY_DIR "@PROJECT_BINARY_DIR@")
+set(SOURCE_ROOT "@PROJECT_SOURCE_DIR@")
 
 file(REMOVE_RECURSE "${PROFILE_DIR}" "${REPORT_DIR}" "${HTML_DIR}")
 file(MAKE_DIRECTORY "${PROFILE_DIR}" "${REPORT_DIR}" "${HTML_DIR}")
@@ -142,7 +142,7 @@ foreach(_index RANGE 0 ${_last_test})
 
     set(_profile_pattern "${PROFILE_DIR}/${_test_slug}-%p-%m.profraw")
     set(_profdata_file "${PROFILE_DIR}/${_test_slug}.profdata")
-    set(_lcov_file "${REPORT_DIR}/${_test_slug}.info")
+    set(_json_file "${REPORT_DIR}/${_test_slug}.json")
     set(_html_dir "${HTML_DIR}/${_test_slug}")
 
     message(STATUS "Running LLVM coverage test: ${_test_name}")
@@ -201,17 +201,18 @@ foreach(_index RANGE 0 ${_last_test})
                 "${TARGET_PATH}"
                 "-object=${_test_path}"
                 "-instr-profile=${_profdata_file}"
-                "-format=lcov"
+                "-format=text"
                 ${FILTER_ARGS}
                 ${SOURCE_ARGS}
-        OUTPUT_FILE "${_lcov_file}"
+        OUTPUT_FILE "${_json_file}"
         RESULT_VARIABLE _export_result
+        ERROR_VARIABLE _export_error
     )
     if(NOT _export_result EQUAL 0)
-        message(FATAL_ERROR "llvm-cov export failed for '${_test_name}'.")
+        message(FATAL_ERROR "llvm-cov export failed for '${_test_name}':\n${_export_error}")
     endif()
 
-    list(APPEND _lcov_reports "${_lcov_file}")
+    list(APPEND _json_reports "${_json_file}")
 
     execute_process(
         COMMAND "${LLVM_COV_EXECUTABLE}" show
@@ -254,45 +255,22 @@ endforeach()
 
 file(APPEND "${HTML_DIR}/index.html" "</ul></body></html>")
 
-set(_lcov_merge_args "")
-foreach(_lcov_report IN LISTS _lcov_reports)
-    list(APPEND _lcov_merge_args --add-tracefile "${_lcov_report}")
-endforeach()
-
 execute_process(
-    COMMAND "${LCOV_EXECUTABLE}"
-            ${_lcov_merge_args}
-            --output-file "${LCOV_FILE}"
-            --branch-coverage
-            --forget-test-names
-            --rc derive_function_end_line=0
-            --rc check_data_consistency=0
-            --quiet
-    RESULT_VARIABLE _lcov_merge_result
-    ERROR_VARIABLE _lcov_merge_error
+    COMMAND "${PYTHON_EXECUTABLE}" "${AGGREGATOR_SCRIPT}"
+            --source-root "${SOURCE_ROOT}"
+            --output-lcov "${LCOV_FILE}"
+            ${_json_reports}
+    RESULT_VARIABLE _aggregate_result
+    OUTPUT_VARIABLE _aggregate_output
+    ERROR_VARIABLE _aggregate_error
 )
-if(NOT _lcov_merge_result EQUAL 0)
-    message(FATAL_ERROR "lcov failed to merge per-test coverage reports:\n${_lcov_merge_error}")
-endif()
-
-execute_process(
-    COMMAND "${LCOV_EXECUTABLE}"
-            --list "${LCOV_FILE}"
-            --branch-coverage
-            --forget-test-names
-            --rc derive_function_end_line=0
-            --rc check_data_consistency=0
-    RESULT_VARIABLE _lcov_list_result
-    OUTPUT_VARIABLE _lcov_list_output
-    ERROR_VARIABLE _lcov_list_error
-)
-if(NOT _lcov_list_result EQUAL 0)
-    message(FATAL_ERROR "lcov failed to list aggregate coverage:\n${_lcov_list_error}")
+if(NOT _aggregate_result EQUAL 0)
+    message(FATAL_ERROR "LLVM JSON coverage aggregation failed:\n${_aggregate_error}")
 endif()
 
 message("")
 message("Aggregate coverage")
-message("${_lcov_list_output}")
+message("${_aggregate_output}")
 ]=])
 
     string(CONFIGURE "${_llvm_coverage_driver_template}" _llvm_coverage_driver @ONLY)
