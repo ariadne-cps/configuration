@@ -98,7 +98,7 @@ if(_module_count GREATER 0)
 
         execute_process(
             COMMAND "${LCOV_EXECUTABLE}" --list "${_module_info}"
-            OUTPUT_FILE "${_module_summary}"
+            OUTPUT_VARIABLE _list_output
             RESULT_VARIABLE _list_result
             ERROR_VARIABLE _list_error
         )
@@ -106,6 +106,10 @@ if(_module_count GREATER 0)
             message(FATAL_ERROR
                 "lcov listing failed for module '${_module_name}':\n${_list_error}")
         endif()
+        file(WRITE "${_module_summary}" "${_list_output}")
+        message("")
+        message("===== Coverage module: ${_module_name} =====")
+        message("${_list_output}")
 
         execute_process(
             COMMAND "${GENHTML_EXECUTABLE}"
@@ -135,7 +139,6 @@ endif()
                 --capture
                 ${_capture_filter_args}
                 --output-file "${COVERAGE_INFO}"
-        COMMAND "${LCOV_EXECUTABLE}" --list "${COVERAGE_INFO}"
         COMMAND "${GENHTML_EXECUTABLE}"
                 --output-directory "${COVERAGE_HTML_DIR}"
                 "${COVERAGE_INFO}"
@@ -157,16 +160,7 @@ endif()
     if(Coverage_MODULE_NAMES)
         add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
             COMMAND "${CMAKE_COMMAND}" -P "${MODULE_SCRIPT}"
-            COMMAND "${CMAKE_COMMAND}" -E echo
-                    "GCC per-module coverage reports: ${MODULE_DIR}"
             VERBATIM
         )
     endif()
-
-    add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E echo
-                "Lcov aggregate coverage report: ${COVERAGE_HTML_DIR}/index.html"
-        COMMAND "${CMAKE_COMMAND}" -E echo
-                "Lcov aggregate trace for Codecov: ${COVERAGE_INFO}"
-    )
 endfunction()

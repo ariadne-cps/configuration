@@ -200,7 +200,7 @@ if(_module_count GREATER 0)
                     "-instr-profile=${PROFDATA_FILE}"
                     ${FILTER_ARGS}
                     ${_module_sources}
-            OUTPUT_FILE "${_module_summary}"
+            OUTPUT_VARIABLE _report_output
             RESULT_VARIABLE _report_result
             ERROR_VARIABLE _report_error
         )
@@ -208,6 +208,10 @@ if(_module_count GREATER 0)
             message(FATAL_ERROR
                 "llvm-cov report failed for module '${_module_name}':\n${_report_error}")
         endif()
+        file(WRITE "${_module_summary}" "${_report_output}")
+        message("")
+        message("===== Coverage module: ${_module_name} =====")
+        message("${_report_output}")
 
         execute_process(
             COMMAND "${LLVM_COV_EXECUTABLE}" export
@@ -265,12 +269,6 @@ endif()
                 "LLVM_PROFILE_FILE=${PROFILE_DIR}/%p-%m.profraw"
                 "${CMAKE_CTEST_COMMAND}" --output-on-failure
         COMMAND "${CMAKE_COMMAND}" -P "${MERGE_SCRIPT}"
-        COMMAND "${LLVM_COV_EXECUTABLE}" report
-                "$<TARGET_FILE:${Coverage_TARGET}>"
-                ${LLVM_COV_OBJECT_ARGS}
-                "-instr-profile=${PROFDATA_FILE}"
-                ${LLVM_COV_FILTER_ARGS}
-                ${LLVM_COV_SOURCE_ARGS}
         COMMAND "${CMAKE_COMMAND}" -P "${EXPORT_SCRIPT}"
         COMMAND "${LLVM_COV_EXECUTABLE}" show
                 "$<TARGET_FILE:${Coverage_TARGET}>"
@@ -298,19 +296,4 @@ endif()
         COMMENT "Running tests and generating LLVM code coverage report."
     )
 
-    if(Coverage_MODULE_NAMES)
-        add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E echo
-                    "LLVM per-module coverage reports: ${MODULE_DIR}"
-        )
-    endif()
-
-    add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E echo
-                "LLVM coverage LCOV report: ${LCOV_FILE}"
-        COMMAND "${CMAKE_COMMAND}" -E echo
-                "LLVM coverage HTML report: ${HTML_DIR}/index.html"
-        COMMAND "${CMAKE_COMMAND}" -E echo
-                "LLVM branch detail report: ${BRANCH_REPORT_FILE}"
-    )
 endfunction()
