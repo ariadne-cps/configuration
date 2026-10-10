@@ -43,8 +43,8 @@ endfunction()
 
 function(setup_target_for_coverage_llvm)
     set(options NONE)
-    set(oneValueArgs NAME TARGET EXCLUDE_REGEX)
-    set(multiValueArgs DEPENDENCIES OBJECTS SOURCES MODULE_NAMES MODULE_ROOTS)
+    set(oneValueArgs NAME TARGET EXCLUDE_REGEX MODULE_PROJECT_ROOT)
+    set(multiValueArgs DEPENDENCIES OBJECTS SOURCES MODULE_NAMES)
     cmake_parse_arguments(Coverage "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     if(NOT Coverage_NAME)
@@ -133,15 +133,9 @@ endif()
 ")
 
     if(Coverage_MODULE_NAMES)
-        list(LENGTH Coverage_MODULE_NAMES _module_name_count)
-        list(LENGTH Coverage_MODULE_ROOTS _module_root_count)
-        if(NOT _module_name_count EQUAL _module_root_count)
-            message(FATAL_ERROR "LLVM coverage module name/root list length mismatch.")
-        endif()
-
         set(_llvm_module_script_template [=[
 set(MODULE_NAMES "@Coverage_MODULE_NAMES@")
-set(MODULE_ROOTS "@Coverage_MODULE_ROOTS@")
+set(MODULE_PROJECT_ROOT "@Coverage_MODULE_PROJECT_ROOT@")
 set(TARGET_PATH "$<TARGET_FILE:@Coverage_TARGET@>")
 set(OBJECT_ARGS "@LLVM_COV_OBJECT_ARGS@")
 set(PROFDATA_FILE "@PROFDATA_FILE@")
@@ -153,31 +147,27 @@ file(REMOVE_RECURSE "${MODULE_DIR}")
 file(MAKE_DIRECTORY "${MODULE_DIR}")
 
 list(LENGTH MODULE_NAMES _module_count)
-list(LENGTH MODULE_ROOTS _root_count)
-if(NOT _module_count EQUAL _root_count)
-    message(FATAL_ERROR "LLVM coverage module name/root list length mismatch.")
-endif()
 
 if(_module_count GREATER 0)
     math(EXPR _module_last "${_module_count} - 1")
     foreach(_index RANGE 0 ${_module_last})
         list(GET MODULE_NAMES ${_index} _module_name)
-        list(GET MODULE_ROOTS ${_index} _module_root)
         string(REGEX REPLACE "[^A-Za-z0-9_.-]" "_" _module_slug "${_module_name}")
 
         set(_module_sources)
         foreach(_source_dir include src)
-            if(EXISTS "${_module_root}/${_source_dir}")
+            set(_module_source_dir "${MODULE_PROJECT_ROOT}/${_source_dir}/${_module_name}")
+            if(EXISTS "${_module_source_dir}")
                 file(GLOB_RECURSE _source_files
                     LIST_DIRECTORIES false
-                    "${_module_root}/${_source_dir}/*.c"
-                    "${_module_root}/${_source_dir}/*.cc"
-                    "${_module_root}/${_source_dir}/*.cpp"
-                    "${_module_root}/${_source_dir}/*.cxx"
-                    "${_module_root}/${_source_dir}/*.h"
-                    "${_module_root}/${_source_dir}/*.hh"
-                    "${_module_root}/${_source_dir}/*.hpp"
-                    "${_module_root}/${_source_dir}/*.hxx"
+                    "${_module_source_dir}/*.c"
+                    "${_module_source_dir}/*.cc"
+                    "${_module_source_dir}/*.cpp"
+                    "${_module_source_dir}/*.cxx"
+                    "${_module_source_dir}/*.h"
+                    "${_module_source_dir}/*.hh"
+                    "${_module_source_dir}/*.hpp"
+                    "${_module_source_dir}/*.hxx"
                 )
                 list(APPEND _module_sources ${_source_files})
             endif()
