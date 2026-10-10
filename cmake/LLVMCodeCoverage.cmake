@@ -44,7 +44,7 @@ endfunction()
 function(setup_target_for_coverage_llvm)
     set(options NONE)
     set(oneValueArgs NAME TARGET EXCLUDE_REGEX)
-    set(multiValueArgs DEPENDENCIES OBJECTS SOURCES)
+    set(multiValueArgs DEPENDENCIES OBJECTS SOURCES MODULE_NAMES MODULE_ROOTS)
     cmake_parse_arguments(Coverage "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     if(NOT Coverage_NAME)
@@ -72,6 +72,8 @@ function(setup_target_for_coverage_llvm)
     set(BRANCH_REPORT_FILE "${PROJECT_BINARY_DIR}/coverage/branches.txt")
     set(MERGE_SCRIPT "${PROJECT_BINARY_DIR}/merge-llvm-coverage.cmake")
     set(EXPORT_SCRIPT "${PROJECT_BINARY_DIR}/export-llvm-coverage.cmake")
+    set(MODULE_DIR "${PROJECT_BINARY_DIR}/coverage/modules")
+    set(MODULE_SCRIPT "${PROJECT_BINARY_DIR}/export-llvm-module-coverage.cmake")
 
     file(WRITE "${MERGE_SCRIPT}"
 "file(GLOB LLVM_RAW_PROFILES \"${PROFILE_DIR}/*.profraw\")
@@ -130,6 +132,132 @@ if(NOT LLVM_COV_EXPORT_RESULT EQUAL 0)
 endif()
 ")
 
+    if(Coverage_MODULE_NAMES)
+        list(LENGTH Coverage_MODULE_NAMES _module_name_count)
+        list(LENGTH Coverage_MODULE_ROOTS _module_root_count)
+        if(NOT _module_name_count EQUAL _module_root_count)
+            message(FATAL_ERROR "LLVM coverage module name/root list length mismatch.")
+        endif()
+
+        set(_llvm_module_script_template [=[
+set(MODULE_NAMES "@Coverage_MODULE_NAMES@")
+set(MODULE_ROOTS "@Coverage_MODULE_ROOTS@")
+set(TARGET_PATH "$<TARGET_FILE:@Coverage_TARGET@>")
+set(OBJECT_ARGS "@LLVM_COV_OBJECT_ARGS@")
+set(PROFDATA_FILE "@PROFDATA_FILE@")
+set(MODULE_DIR "@MODULE_DIR@")
+set(FILTER_ARGS "@LLVM_COV_FILTER_ARGS@")
+set(LLVM_COV_EXECUTABLE "@LLVM_COV_EXECUTABLE@")
+
+file(REMOVE_RECURSE "${MODULE_DIR}")
+file(MAKE_DIRECTORY "${MODULE_DIR}")
+
+list(LENGTH MODULE_NAMES _module_count)
+list(LENGTH MODULE_ROOTS _root_count)
+if(NOT _module_count EQUAL _root_count)
+    message(FATAL_ERROR "LLVM coverage module name/root list length mismatch.")
+endif()
+
+if(_module_count GREATER 0)
+    math(EXPR _module_last "${_module_count} - 1")
+    foreach(_index RANGE 0 ${_module_last})
+        list(GET MODULE_NAMES ${_index} _module_name)
+        list(GET MODULE_ROOTS ${_index} _module_root)
+        string(REGEX REPLACE "[^A-Za-z0-9_.-]" "_" _module_slug "${_module_name}")
+
+        set(_module_sources)
+        foreach(_source_dir include src)
+            if(EXISTS "${_module_root}/${_source_dir}")
+                file(GLOB_RECURSE _source_files
+                    LIST_DIRECTORIES false
+                    "${_module_root}/${_source_dir}/*.c"
+                    "${_module_root}/${_source_dir}/*.cc"
+                    "${_module_root}/${_source_dir}/*.cpp"
+                    "${_module_root}/${_source_dir}/*.cxx"
+                    "${_module_root}/${_source_dir}/*.h"
+                    "${_module_root}/${_source_dir}/*.hh"
+                    "${_module_root}/${_source_dir}/*.hpp"
+                    "${_module_root}/${_source_dir}/*.hxx"
+                )
+                list(APPEND _module_sources ${_source_files})
+            endif()
+        endforeach()
+
+        if(NOT _module_sources)
+            message(FATAL_ERROR "No coverage sources found for module '${_module_name}'.")
+        endif()
+
+        set(_module_dir "${MODULE_DIR}/${_module_slug}")
+        set(_module_info "${_module_dir}/coverage.info")
+        set(_module_html "${_module_dir}/html")
+        set(_module_summary "${_module_dir}/summary.txt")
+        file(MAKE_DIRECTORY "${_module_dir}")
+
+        execute_process(
+            COMMAND "${LLVM_COV_EXECUTABLE}" report
+                    "${TARGET_PATH}"
+                    ${OBJECT_ARGS}
+                    "-instr-profile=${PROFDATA_FILE}"
+                    ${FILTER_ARGS}
+                    ${_module_sources}
+            OUTPUT_FILE "${_module_summary}"
+            RESULT_VARIABLE _report_result
+            ERROR_VARIABLE _report_error
+        )
+        if(NOT _report_result EQUAL 0)
+            message(FATAL_ERROR
+                "llvm-cov report failed for module '${_module_name}':\n${_report_error}")
+        endif()
+
+        execute_process(
+            COMMAND "${LLVM_COV_EXECUTABLE}" export
+                    "${TARGET_PATH}"
+                    ${OBJECT_ARGS}
+                    "-instr-profile=${PROFDATA_FILE}"
+                    "-format=lcov"
+                    ${FILTER_ARGS}
+                    ${_module_sources}
+            OUTPUT_FILE "${_module_info}"
+            RESULT_VARIABLE _export_result
+            ERROR_VARIABLE _export_error
+        )
+        if(NOT _export_result EQUAL 0)
+            message(FATAL_ERROR
+                "llvm-cov export failed for module '${_module_name}':\n${_export_error}")
+        endif()
+
+        file(MAKE_DIRECTORY "${_module_html}")
+        execute_process(
+            COMMAND "${LLVM_COV_EXECUTABLE}" show
+                    "${TARGET_PATH}"
+                    ${OBJECT_ARGS}
+                    "-instr-profile=${PROFDATA_FILE}"
+                    "-format=html"
+                    "-show-branches=count"
+                    "-output-dir=${_module_html}"
+                    ${FILTER_ARGS}
+                    ${_module_sources}
+            RESULT_VARIABLE _html_result
+            ERROR_VARIABLE _html_error
+        )
+        if(NOT _html_result EQUAL 0)
+            message(FATAL_ERROR
+                "llvm-cov HTML generation failed for module '${_module_name}':\n${_html_error}")
+        endif()
+    endforeach()
+endif()
+]=])
+        string(CONFIGURE "${_llvm_module_script_template}" _llvm_module_script @ONLY)
+        file(GENERATE OUTPUT "${MODULE_SCRIPT}" CONTENT "${_llvm_module_script}")
+    endif()
+
+    set(_module_coverage_command)
+    if(Coverage_MODULE_NAMES)
+        set(_module_coverage_command
+            COMMAND "${CMAKE_COMMAND}" -P "${MODULE_SCRIPT}"
+        )
+    endif()
+
     add_custom_target(${Coverage_NAME}
         COMMAND "${CMAKE_COMMAND}" -E rm -rf "${PROJECT_BINARY_DIR}/coverage"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${PROFILE_DIR}"
@@ -163,11 +291,19 @@ endif()
                 "-output-dir=${HTML_DIR}"
                 ${LLVM_COV_FILTER_ARGS}
                 ${LLVM_COV_SOURCE_ARGS}
+        ${_module_coverage_command}
         WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
         DEPENDS ${Coverage_DEPENDENCIES} ${Coverage_TARGET} ${Coverage_OBJECTS}
         VERBATIM
         COMMENT "Running tests and generating LLVM code coverage report."
     )
+
+    if(Coverage_MODULE_NAMES)
+        add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E echo
+                    "LLVM per-module coverage reports: ${MODULE_DIR}"
+        )
+    endif()
 
     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E echo

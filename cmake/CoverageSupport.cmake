@@ -28,7 +28,7 @@ function(setup_project_coverage)
         return()
     endif()
 
-    set(options)
+    set(options MODULE_REPORTS)
     set(oneValueArgs TARGET TEST_TARGET EXCLUDE_REGEX)
     set(multiValueArgs SOURCES COVERAGE_TARGETS)
     cmake_parse_arguments(COVERAGE_SETUP
@@ -45,6 +45,43 @@ function(setup_project_coverage)
     endif()
     if(NOT TARGET ${COVERAGE_SETUP_TEST_TARGET})
         message(FATAL_ERROR "Test aggregate target '${COVERAGE_SETUP_TEST_TARGET}' does not exist.")
+    endif()
+
+    set(_coverage_sources ${COVERAGE_SETUP_SOURCES})
+    set(_module_names)
+    set(_module_roots)
+    if(COVERAGE_SETUP_MODULE_REPORTS)
+        get_property(_root_module_target GLOBAL PROPERTY ARIADNE_PROJECT_MODULE_TARGET)
+        if(NOT _root_module_target)
+            message(FATAL_ERROR
+                "MODULE_REPORTS requires setup_project_library to register the project module target.")
+        endif()
+
+        get_target_property(_module_targets
+            ${_root_module_target} ARIADNE_PROJECT_MODULE_TARGETS)
+        if(NOT _module_targets)
+            message(FATAL_ERROR
+                "No project modules were registered for modular coverage.")
+        endif()
+
+        set(_coverage_sources)
+        foreach(_module_target IN LISTS _module_targets)
+            get_target_property(_module_root
+                ${_module_target} ARIADNE_PROJECT_SOURCE_ROOT)
+            if(NOT _module_root)
+                message(FATAL_ERROR
+                    "Project module '${_module_target}' has no registered source root.")
+            endif()
+
+            list(APPEND _module_names "${_module_target}")
+            list(APPEND _module_roots "${_module_root}")
+            if(EXISTS "${_module_root}/include")
+                list(APPEND _coverage_sources "${_module_root}/include")
+            endif()
+            if(EXISTS "${_module_root}/src")
+                list(APPEND _coverage_sources "${_module_root}/src")
+            endif()
+        endforeach()
     endif()
 
     if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
@@ -70,7 +107,9 @@ function(setup_project_coverage)
             TARGET ${COVERAGE_SETUP_TARGET}
             OBJECTS ${_coverage_objects}
             DEPENDENCIES ${COVERAGE_SETUP_TEST_TARGET}
-            SOURCES ${COVERAGE_SETUP_SOURCES}
+            SOURCES ${_coverage_sources}
+            MODULE_NAMES ${_module_names}
+            MODULE_ROOTS ${_module_roots}
         )
         if(COVERAGE_SETUP_EXCLUDE_REGEX)
             list(APPEND _llvm_args EXCLUDE_REGEX "${COVERAGE_SETUP_EXCLUDE_REGEX}")
@@ -81,7 +120,9 @@ function(setup_project_coverage)
         setup_target_for_coverage_gcc(
             NAME coverage
             DEPENDENCIES ${COVERAGE_SETUP_TEST_TARGET}
-            SOURCES ${COVERAGE_SETUP_SOURCES}
+            SOURCES ${_coverage_sources}
+            MODULE_NAMES ${_module_names}
+            MODULE_ROOTS ${_module_roots}
             EXCLUDE_REGEX "${COVERAGE_SETUP_EXCLUDE_REGEX}"
         )
     endif()
@@ -89,7 +130,7 @@ endfunction()
 
 macro(setup_standalone_project_tests)
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    set(options EXCLUDE_FROM_ALL)
+    set(options EXCLUDE_FROM_ALL MODULE_REPORTS)
     set(oneValueArgs TARGET TEST_DIRECTORY TEST_TARGET EXCLUDE_REGEX)
     set(multiValueArgs SOURCES TEST_BUILD_DEPENDENCIES COVERAGE_TARGETS)
     cmake_parse_arguments(TEST_SETUP
@@ -128,12 +169,18 @@ macro(setup_standalone_project_tests)
     )
     setup_project_benchmarks()
 
+    set(_coverage_options)
+    if(TEST_SETUP_MODULE_REPORTS)
+        list(APPEND _coverage_options MODULE_REPORTS)
+    endif()
+
     setup_project_coverage(
         TARGET ${TEST_SETUP_TARGET}
         TEST_TARGET ${TEST_SETUP_TEST_TARGET}
         SOURCES ${TEST_SETUP_SOURCES}
         COVERAGE_TARGETS ${TEST_SETUP_COVERAGE_TARGETS}
         EXCLUDE_REGEX "${TEST_SETUP_EXCLUDE_REGEX}"
+        ${_coverage_options}
     )
     endif()
 endmacro()

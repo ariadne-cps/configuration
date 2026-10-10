@@ -24,6 +24,7 @@ function(setup_project_library)
     endif()
 
     set(_object_targets ${PROJECT_LIBRARY_OBJECTS})
+    set(_module_targets ${_module_target})
     get_target_property(_interface_dependencies
         ${_module_target} INTERFACE_LINK_LIBRARIES)
 
@@ -34,10 +35,17 @@ function(setup_project_library)
             if(_dependency_objects)
                 list(APPEND _object_targets ${_dependency_objects})
             endif()
+
+            get_target_property(_dependency_modules
+                ${_dependency} ARIADNE_PROJECT_MODULE_TARGETS)
+            if(_dependency_modules)
+                list(APPEND _module_targets ${_dependency_modules})
+            endif()
         endif()
     endforeach()
 
     list(REMOVE_DUPLICATES _object_targets)
+    list(REMOVE_DUPLICATES _module_targets)
 
     foreach(_object_target IN LISTS _object_targets)
         if(NOT TARGET ${_object_target})
@@ -48,6 +56,10 @@ function(setup_project_library)
 
     set_property(TARGET ${_module_target} PROPERTY
         ARIADNE_PROJECT_OBJECT_TARGETS ${_object_targets})
+    set_property(TARGET ${_module_target} PROPERTY
+        ARIADNE_PROJECT_MODULE_TARGETS ${_module_targets})
+    set_property(TARGET ${_module_target} PROPERTY
+        ARIADNE_PROJECT_SOURCE_ROOT "${PROJECT_SOURCE_DIR}")
 
     if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         return()
@@ -66,6 +78,9 @@ function(setup_project_library)
     set_property(GLOBAL PROPERTY
         ARIADNE_PROJECT_LIBRARY_TARGET
         ${PROJECT_LIBRARY_TARGET})
+    set_property(GLOBAL PROPERTY
+        ARIADNE_PROJECT_MODULE_TARGET
+        ${_module_target})
 
     install(TARGETS ${PROJECT_LIBRARY_TARGET}
         LIBRARY DESTINATION lib
