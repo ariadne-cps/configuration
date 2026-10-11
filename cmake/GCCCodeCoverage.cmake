@@ -151,5 +151,10 @@ endif()
             COMMAND "${CMAKE_COMMAND}" -P "${MODULE_SCRIPT}"
             VERBATIM
         )
+    else()
+        add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
+            COMMAND "${LCOV_EXECUTABLE}" --list "${COVERAGE_INFO}"
+            VERBATIM
+        )
     endif()
 endfunction()

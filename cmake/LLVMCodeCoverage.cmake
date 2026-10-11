@@ -245,10 +245,19 @@ endif()
         file(GENERATE OUTPUT "${MODULE_SCRIPT}" CONTENT "${_llvm_module_script}")
     endif()
 
-    set(_module_coverage_command)
+    set(_coverage_report_command)
     if(Coverage_MODULE_NAMES)
-        set(_module_coverage_command
+        set(_coverage_report_command
             COMMAND "${CMAKE_COMMAND}" -P "${MODULE_SCRIPT}"
+        )
+    else()
+        set(_coverage_report_command
+            COMMAND "${LLVM_COV_EXECUTABLE}" report
+                    "$<TARGET_FILE:${Coverage_TARGET}>"
+                    ${LLVM_COV_OBJECT_ARGS}
+                    "-instr-profile=${PROFDATA_FILE}"
+                    ${LLVM_COV_FILTER_ARGS}
+                    ${LLVM_COV_SOURCE_ARGS}
         )
     endif()
 
@@ -279,7 +288,7 @@ endif()
                 "-output-dir=${HTML_DIR}"
                 ${LLVM_COV_FILTER_ARGS}
                 ${LLVM_COV_SOURCE_ARGS}
-        ${_module_coverage_command}
+        ${_coverage_report_command}
         WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
         DEPENDS ${Coverage_DEPENDENCIES} ${Coverage_TARGET} ${Coverage_OBJECTS}
         VERBATIM
