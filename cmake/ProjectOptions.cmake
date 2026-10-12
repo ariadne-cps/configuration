@@ -81,8 +81,21 @@ endmacro()
 
 macro(setup_project)
     option(COVERAGE "Enable coverage reporting" OFF)
+    option(THREAD_SANITIZER "Enable ThreadSanitizer" OFF)
+
+    if(COVERAGE AND THREAD_SANITIZER)
+        message(FATAL_ERROR "COVERAGE and THREAD_SANITIZER cannot be enabled together.")
+    endif()
 
     enable_project_options()
+
+    if(THREAD_SANITIZER AND CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        if(WIN32 OR NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+            message(FATAL_ERROR "ThreadSanitizer requires GCC or Clang on Unix-like systems.")
+        endif()
+        add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=thread)
+    endif()
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         add_custom_target(benchmarks)
         add_custom_target(bindings)
