@@ -51,6 +51,23 @@ function(enable_project_options)
     endif()
 endfunction()
 
+function(report_python_configuration_once)
+    if(NOT Python3_FOUND)
+        return()
+    endif()
+
+    get_property(_already_reported GLOBAL PROPERTY ARIADNE_PYTHON_CONFIGURATION_REPORTED)
+    if(_already_reported)
+        return()
+    endif()
+
+    message(STATUS "Python executable: ${Python3_EXECUTABLE}")
+    message(STATUS "Python version:    ${Python3_VERSION}")
+    message(STATUS "Python includes:   ${Python3_INCLUDE_DIRS}")
+    message(STATUS "Python SOABI:      ${Python3_SOABI}")
+    set_property(GLOBAL PROPERTY ARIADNE_PYTHON_CONFIGURATION_REPORTED TRUE)
+endfunction()
+
 function(check_project_compiler)
     if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.20)
