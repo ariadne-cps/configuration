@@ -66,13 +66,38 @@ function(ariadne_add_python_module)
         $<TARGET_OBJECTS:${_module_object_target}>
     )
 
+    get_property(_registered_modules GLOBAL PROPERTY ARIADNE_PYTHON_MODULES)
+    if(NOT _registered_modules)
+        set(_registered_modules)
+    endif()
+    list(FIND _registered_modules "${ARIADNE_PY_NAME}" _module_index)
+    if(_module_index EQUAL -1)
+        set_property(GLOBAL APPEND PROPERTY
+            ARIADNE_PYTHON_MODULES "${ARIADNE_PY_NAME}")
+    endif()
+
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        get_property(_registered_modules GLOBAL PROPERTY ARIADNE_PYTHON_MODULES)
+
+        set(_entry_content "#include \"pybind11.hpp\"\n\n")
+        foreach(_module IN LISTS _registered_modules)
+            string(APPEND _entry_content
+                "void ${_module}_module(pybind11::module& module);\n")
+        endforeach()
+
+        string(APPEND _entry_content
+            "\nPYBIND11_MODULE(pyariadne, module) {\n")
+        foreach(_module IN LISTS _registered_modules)
+            string(APPEND _entry_content
+                "    ${_module}_module(module);\n")
+        endforeach()
+        string(APPEND _entry_content "}\n")
+
         set(_entry_source
             "${CMAKE_CURRENT_BINARY_DIR}/${ARIADNE_PY_NAME}_python_entry.cpp")
         file(GENERATE
             OUTPUT "${_entry_source}"
-            CONTENT
-"#include \"pybind11.hpp\"\n\nvoid ${ARIADNE_PY_NAME}_module(pybind11::module& module);\n\nPYBIND11_MODULE(pyariadne, module) {\n    ${ARIADNE_PY_NAME}_module(module);\n}\n"
+            CONTENT "${_entry_content}"
         )
 
         add_library(${_entry_object_target} OBJECT
