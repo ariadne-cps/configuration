@@ -114,3 +114,57 @@ function(ariadne_add_python_module)
             PROPERTIES POSITION_INDEPENDENT_CODE ON)
     endif()
 endfunction()
+
+
+function(ariadne_finalize_python_module)
+    set(_options)
+    set(_one_value_args NAME)
+    cmake_parse_arguments(
+        ARIADNE_PY
+        "${_options}"
+        "${_one_value_args}"
+        ""
+        ${ARGN}
+    )
+
+    if(NOT ARIADNE_PY_NAME)
+        message(FATAL_ERROR "ariadne_finalize_python_module requires NAME")
+    endif()
+
+    set(_module_target "${ARIADNE_PY_NAME}")
+    set(_interface_target "pyariadne-${ARIADNE_PY_NAME}")
+    set(_entry_object_target "${_interface_target}-entry-obj")
+
+    if(NOT TARGET ${_module_target})
+        message(FATAL_ERROR
+            "ariadne_finalize_python_module requires existing target ${_module_target}")
+    endif()
+    if(NOT TARGET ${_interface_target})
+        message(FATAL_ERROR
+            "ariadne_finalize_python_module requires existing target ${_interface_target}")
+    endif()
+    if(NOT TARGET ${_entry_object_target})
+        message(FATAL_ERROR
+            "ariadne_finalize_python_module requires existing target ${_entry_object_target}")
+    endif()
+
+    get_target_property(_object_targets
+        ${_module_target} ARIADNE_PROJECT_OBJECT_TARGETS)
+    if(NOT _object_targets)
+        message(FATAL_ERROR
+            "Target ${_module_target} has no ARIADNE_PROJECT_OBJECT_TARGETS")
+    endif()
+
+    pybind11_add_module(pyariadne
+        $<TARGET_OBJECTS:${_entry_object_target}>
+    )
+    foreach(_object_target IN LISTS _object_targets)
+        target_sources(pyariadne PRIVATE
+            $<TARGET_OBJECTS:${_object_target}>
+        )
+    endforeach()
+    target_link_libraries(pyariadne PRIVATE
+        ${_interface_target}
+        ${_module_target}
+    )
+endfunction()
