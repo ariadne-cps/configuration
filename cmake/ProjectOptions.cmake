@@ -1,5 +1,9 @@
 include_guard(GLOBAL)
 
+if(NOT TARGET ariadne-configuration)
+    add_library(ariadne-configuration INTERFACE)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 
 include(CMakeParseArguments)
