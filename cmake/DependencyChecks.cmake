@@ -81,8 +81,19 @@ function(_ariadne_ensure_submodule_initialized REPOSITORY NAME OUTPUT_DIRECTORY)
 endfunction()
 
 function(ensure_submodule_initialized NAME)
+    set(options)
+    set(oneValueArgs REPOSITORY)
+    cmake_parse_arguments(
+        SUBMODULE "${options}" "${oneValueArgs}" "" ${ARGN})
+
+    if(SUBMODULE_REPOSITORY)
+        set(_repository "${SUBMODULE_REPOSITORY}")
+    else()
+        set(_repository "${PROJECT_SOURCE_DIR}")
+    endif()
+
     _ariadne_ensure_submodule_initialized(
-        "${PROJECT_SOURCE_DIR}" "${NAME}" _directory)
+        "${_repository}" "${NAME}" _directory)
 endfunction()
 
 function(get_gitlink_commit REPOSITORY SUBMODULE_PATH OUTPUT_VARIABLE)
