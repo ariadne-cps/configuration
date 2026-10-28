@@ -9,7 +9,7 @@ functions and targets, not a C++ runtime library.
 | Module | Functions or macros | Purpose |
 | --- | --- | --- |
 | `ProjectOptions.cmake` | `setup_project`, `enable_project_options`, `check_project_compiler`, `configure_library_kind`, `report_python_configuration_once` | C++20 compiler options, warnings, shared/static library choices, common project targets and sanitizers. |
-| `DependencyChecks.cmake` | `ensure_submodule_initialized`, `get_gitlink_commit`, `require_same_dependency_commit` | Resolve submodule paths and validate pinned dependency consistency along different repository chains. |
+| `DependencyChecks.cmake` | `ensure_submodule_initialized`, `ariadne_add_submodule`, `get_gitlink_commit`, `require_same_dependency_commit` | Resolve submodule paths and validate pinned dependency consistency along different repository chains. |
 | `ProjectLibrarySupport.cmake` | `setup_project_library` | Build the standalone library target from object targets and module dependencies. |
 | `InstallBundleSupport.cmake` | `ariadne_register_public_headers`, `ariadne_install_dependency_bundle` | Register and install public header bundles, including reachable project dependencies. |
 | `CoverageSupport.cmake` | `enable_project_coverage`, `setup_project_coverage`, `setup_project_tests`, `setup_standalone_project_tests`, `setup_project_benchmarks` | Standalone test/benchmark setup and code coverage, using GCC/lcov or LLVM tools. |
@@ -23,13 +23,17 @@ template used for uninstalling a project.
 
 ## CMake use
 
-Projects normally include `cmake/ProjectOptions.cmake` via their
-`ss/configuration` gitlink and call `setup_project()`.
+Projects include `cmake/ProjectOptions.cmake` via their pinned
+`ss/cfg` gitlink and call `setup_project()`. Submodule directories use short
+checkout codes such as `ss/mac` for `macro`, while CMake dependency checks use
+full logical repository names. `ariadne_add_submodule(macro)` resolves the
+checkout directory from `.gitmodules` and adds the dependency. Both the
+original long paths and short paths are supported during migration.
 
 For standalone API documentation, after the project targets have been set up:
 
 ```cmake
-include("${PROJECT_SOURCE_DIR}/ss/configuration/cmake/UseDoxygen.cmake")
+include("${PROJECT_SOURCE_DIR}/ss/cfg/cmake/UseDoxygen.cmake")
 ariadne_setup_documentation(
   INPUT "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/src"
 )

@@ -12,26 +12,45 @@ function(_ariadne_resolve_submodule_path REPOSITORY NAME OUTPUT_VARIABLE)
 
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_gitmodules}")
 
+    # Submodule paths are checkout details (e.g. ss/uti), whereas NAME is the
+    # logical GitHub repository name (e.g. utility). Use each submodule URL
+    # rather than its directory basename, supporting both long and short paths.
     execute_process(
         COMMAND "${GIT_EXECUTABLE}" config --file "${_gitmodules}"
-                --get-regexp "^submodule\\..*\\.path$"
-        OUTPUT_VARIABLE _paths_output
+                --get-regexp "^submodule\\..*\\.url$"
+        OUTPUT_VARIABLE _urls_output
         OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_VARIABLE _paths_error
-        RESULT_VARIABLE _paths_result
+        ERROR_VARIABLE _urls_error
+        RESULT_VARIABLE _urls_result
     )
-    if(NOT _paths_result EQUAL 0)
+    if(NOT _urls_result EQUAL 0)
         message(FATAL_ERROR
-            "Cannot read submodule paths from ${_gitmodules}: ${_paths_error}")
+            "Cannot read submodule URLs from ${_gitmodules}: ${_urls_error}")
     endif()
 
-    string(REPLACE "\n" ";" _path_lines "${_paths_output}")
     set(_matches)
-    foreach(_line IN LISTS _path_lines)
-        if(_line MATCHES "^[^ \t]+[ \t]+(.+)$")
-            set(_path "${CMAKE_MATCH_1}")
-            get_filename_component(_basename "${_path}" NAME)
-            if(_basename STREQUAL "${NAME}")
+    string(REPLACE "\n" ";" _url_lines "${_urls_output}")
+    foreach(_line IN LISTS _url_lines)
+        if(_line MATCHES "^([^ \t]+)[ \t]+(.+)$")
+            set(_url_key "${CMAKE_MATCH_1}")
+            set(_url "${CMAKE_MATCH_2}")
+            string(REGEX REPLACE "\\.git/?$" "" _url "${_url}")
+            string(REGEX REPLACE "/+$" "" _url "${_url}")
+            string(REGEX REPLACE "^.*[/:]" "" _logical_name "${_url}")
+            if(_logical_name STREQUAL "${NAME}")
+                string(REGEX REPLACE "\\.url$" ".path" _path_key "${_url_key}")
+                execute_process(
+                    COMMAND "${GIT_EXECUTABLE}" config --file "${_gitmodules}"
+                            --get "${_path_key}"
+                    OUTPUT_VARIABLE _path
+                    OUTPUT_STRIP_TRAILING_WHITESPACE
+                    ERROR_VARIABLE _path_error
+                    RESULT_VARIABLE _path_result
+                )
+                if(NOT _path_result EQUAL 0 OR _path STREQUAL "")
+                    message(FATAL_ERROR
+                        "No path for submodule '${NAME}' in ${_gitmodules}: ${_path_error}")
+                endif()
                 list(APPEND _matches "${_path}")
             endif()
         endif()
@@ -40,8 +59,8 @@ function(_ariadne_resolve_submodule_path REPOSITORY NAME OUTPUT_VARIABLE)
     list(LENGTH _matches _match_count)
     if(NOT _match_count EQUAL 1)
         message(FATAL_ERROR
-            "Submodule name '${NAME}' resolves to ${_match_count} paths in "
-            "${_gitmodules}; expected exactly one.")
+            "Submodule '${NAME}' resolves to ${_match_count} paths in "
+            "${_gitmodules}; expected exactly one URL match.")
     endif()
 
     list(GET _matches 0 _path)
@@ -95,6 +114,18 @@ function(ensure_submodule_initialized NAME)
     _ariadne_ensure_submodule_initialized(
         "${_repository}" "${NAME}" _directory)
 endfunction()
+
+# Resolve and initialize by logical repository name, then add its
+# physical checkout directory. Keep a macro so child project() and
+# add_subdirectory() retain the caller's CMake directory scope.
+macro(ariadne_add_submodule NAME)
+    _ariadne_ensure_submodule_initialized(
+        "${PROJECT_SOURCE_DIR}" "${NAME}" _ariadne_submodule_source)
+    get_filename_component(_ariadne_submodule_basename
+        "${_ariadne_submodule_source}" NAME)
+    add_subdirectory("${_ariadne_submodule_source}"
+        "${CMAKE_CURRENT_BINARY_DIR}/${_ariadne_submodule_basename}")
+endmacro()
 
 function(get_gitlink_commit REPOSITORY SUBMODULE_PATH OUTPUT_VARIABLE)
     execute_process(
