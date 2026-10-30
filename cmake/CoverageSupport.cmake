@@ -104,7 +104,7 @@ endfunction()
 
 macro(setup_standalone_project_tests)
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    set(options EXCLUDE_FROM_ALL)
+    set(options EXCLUDE_FROM_ALL USE_ARIADNE_TESTING)
     set(oneValueArgs TARGET TEST_DIRECTORY TEST_TARGET EXCLUDE_REGEX)
     set(multiValueArgs SOURCES TEST_BUILD_DEPENDENCIES COVERAGE_TARGETS MODULE_REPORTS)
     cmake_parse_arguments(TEST_SETUP
@@ -121,6 +121,12 @@ macro(setup_standalone_project_tests)
     endif()
 
     enable_testing()
+
+    # Test-only opt-in: initialize the pinned Testing submodule before
+    # configuring tests, without linking it to production targets.
+    if(TEST_SETUP_USE_ARIADNE_TESTING)
+        ariadne_setup_testing()
+    endif()
 
     if(TEST_SETUP_EXCLUDE_FROM_ALL)
         add_subdirectory("${TEST_SETUP_TEST_DIRECTORY}" EXCLUDE_FROM_ALL)
