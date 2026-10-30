@@ -13,8 +13,11 @@ file(WRITE "${_fixture}/.gitmodules"
     "[submodule \"legacy-utility\"]\n"
     "  path = ss/utility\n"
     "  url = https://github.com/ariadne-cps/utility\n"
+    "[submodule \"tst\"]\n"
+    "  path = ss/tst\n"
+    "  url = https://github.com/ariadne-cps/testing.git\n"
 )
-foreach(_case IN ITEMS "configuration|ss/cfg" "macro|ss/mac" "utility|ss/utility")
+foreach(_case IN ITEMS "configuration|ss/cfg" "macro|ss/mac" "utility|ss/utility" "testing|ss/tst")
     string(REPLACE "|" ";" _parts "${_case}")
     list(GET _parts 0 _name)
     list(GET _parts 1 _expected)
@@ -23,5 +26,19 @@ foreach(_case IN ITEMS "configuration|ss/cfg" "macro|ss/mac" "utility|ss/utility
         message(FATAL_ERROR "Expected ${_name} => ${_expected}; got ${_actual}")
     endif()
 endforeach()
+_ariadne_resolve_submodule_path("${_fixture}" "testing" _found OPTIONAL)
+if(NOT _found STREQUAL "ss/tst")
+    message(FATAL_ERROR "Expected optional Testing submodule; got '${_found}'")
+endif()
+_ariadne_resolve_submodule_path("${_fixture}" "rendering" _missing OPTIONAL)
+if(NOT _missing STREQUAL "")
+    message(FATAL_ERROR "Undeclared optional dependency should not be initialized")
+endif()
+set(_without_gitmodules "${_fixture}/empty")
+file(MAKE_DIRECTORY "${_without_gitmodules}")
+_ariadne_resolve_submodule_path("${_without_gitmodules}" "testing" _missing OPTIONAL)
+if(NOT _missing STREQUAL "")
+    message(FATAL_ERROR "Missing .gitmodules must be optional")
+endif()
 file(REMOVE_RECURSE "${_fixture}")
 message(STATUS "Short and legacy submodule resolution passed")

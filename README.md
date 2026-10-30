@@ -10,10 +10,10 @@ functions and targets, not a C++ runtime library.
 | --- | --- | --- |
 | `ProjectOptions.cmake` | `setup_project`, `enable_project_options`, `check_project_compiler`, `configure_library_kind`, `report_python_configuration_once` | C++20 compiler options, warnings, shared/static library choices, common project targets and sanitizers. |
 | `DependencyChecks.cmake` | `ensure_submodule_initialized`, `ariadne_add_submodule`, `get_gitlink_commit`, `require_same_dependency_commit` | Resolve submodule paths and validate pinned dependency consistency along different repository chains. |
-| `TestingSupport.cmake` | `ariadne_setup_testing` | Initialize the Testing submodule only when a standalone project's tests opt in; reuse its static test-only target. |
+| `TestingSupport.cmake` | `ariadne_setup_testing` | Automatically reuse or initialize the declared Testing submodule for standalone tests, with no dependency when absent. |
 | `ProjectLibrarySupport.cmake` | `setup_project_library` | Build the standalone library target from object targets and module dependencies. |
 | `InstallBundleSupport.cmake` | `ariadne_register_public_headers`, `ariadne_install_dependency_bundle` | Register and install public header bundles, including reachable project dependencies. |
-| `CoverageSupport.cmake` | `enable_project_coverage`, `setup_project_coverage`, `setup_project_tests`, `setup_standalone_project_tests`, `setup_project_benchmarks` | Standalone test/benchmark setup and code coverage, with optional `USE_ARIADNE_TESTING`, using GCC/lcov or LLVM tools. |
+| `CoverageSupport.cmake` | `enable_project_coverage`, `setup_project_coverage`, `setup_project_tests`, `setup_standalone_project_tests`, `setup_project_benchmarks` | Standalone test/benchmark setup and code coverage, using GCC/lcov or LLVM tools. |
 | `PythonBindingSupport.cmake` | `ariadne_add_python_module`, `ariadne_finalize_python_module` | Configure and finalize Python binding modules. |
 | `UninstallSupport.cmake` | `setup_project_uninstall` | Create a project uninstall target. |
 | `UseDoxygen.cmake` | `ariadne_setup_documentation` | Define `doc`, `doxygen`, `doc-html`, `doc-markdown`, and optionally `doc-pdf`. |
@@ -39,14 +39,15 @@ setup_standalone_project_tests(
   TARGET ariadne-utility
   TEST_DIRECTORY tests
   TEST_TARGET tests
-  USE_ARIADNE_TESTING
   SOURCES "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/src"
 )
 ```
 
-The switch initializes the repository's pinned `testing` Git submodule,
-only while configuring standalone tests, and exposes its existing
-`ariadne-testing` static target. Individual tests can simply link it:
+When the project declares a `testing` Git submodule, standalone test
+configuration initializes its pinned gitlink automatically and exposes
+the existing `ariadne-testing` static target. If a Testing target already
+exists, it is reused. Projects without a Testing submodule continue
+using their own CTest tests, without fetching Testing. Individual tests can simply link it:
 
 ```cmake
 target_link_libraries(test_example PRIVATE ariadne-utility utility ariadne-testing)
@@ -54,9 +55,9 @@ target_link_libraries(test_example PRIVATE ariadne-utility utility ariadne-testi
 
 No duplicate library assembled from `TESTING_SRC` is necessary. Testing
 never becomes an `INTERFACE` dependency of the production target and is
-**never installed**. The opt-in is deliberately explicit: projects with no
-Testing submodule need no framework dependency. Projects embedding this
-library do not configure its standalone tests.
+**never installed**. No `USE_ARIADNE_TESTING` flag is required: the submodule declaration is
+sufficient. Projects embedding a library do not configure its standalone
+tests.
 
 For standalone API documentation, after the project targets have been set up:
 

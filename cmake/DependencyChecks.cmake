@@ -3,9 +3,19 @@ include_guard(GLOBAL)
 find_package(Git REQUIRED)
 include(CMakeParseArguments)
 
+# OPTIONAL returns an empty path when the logical submodule is not declared;
+# mandatory callers retain their existing strict failure behavior.
 function(_ariadne_resolve_submodule_path REPOSITORY NAME OUTPUT_VARIABLE)
+    set(_optional FALSE)
+    if(ARGC GREATER 3 AND ARGV3 STREQUAL "OPTIONAL")
+        set(_optional TRUE)
+    endif()
     set(_gitmodules "${REPOSITORY}/.gitmodules")
     if(NOT EXISTS "${_gitmodules}")
+        if(_optional)
+            set(${OUTPUT_VARIABLE} "" PARENT_SCOPE)
+            return()
+        endif()
         message(FATAL_ERROR
             "Repository ${REPOSITORY} has no .gitmodules while resolving '${NAME}'.")
     endif()
@@ -24,6 +34,10 @@ function(_ariadne_resolve_submodule_path REPOSITORY NAME OUTPUT_VARIABLE)
         RESULT_VARIABLE _urls_result
     )
     if(NOT _urls_result EQUAL 0)
+        if(_optional AND _urls_output STREQUAL "" AND _urls_error STREQUAL "")
+            set(${OUTPUT_VARIABLE} "" PARENT_SCOPE)
+            return()
+        endif()
         message(FATAL_ERROR
             "Cannot read submodule URLs from ${_gitmodules}: ${_urls_error}")
     endif()
@@ -57,6 +71,10 @@ function(_ariadne_resolve_submodule_path REPOSITORY NAME OUTPUT_VARIABLE)
     endforeach()
 
     list(LENGTH _matches _match_count)
+    if(_optional AND _match_count EQUAL 0)
+        set(${OUTPUT_VARIABLE} "" PARENT_SCOPE)
+        return()
+    endif()
     if(NOT _match_count EQUAL 1)
         message(FATAL_ERROR
             "Submodule '${NAME}' resolves to ${_match_count} paths in "
